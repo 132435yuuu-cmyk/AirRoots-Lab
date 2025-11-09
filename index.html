@@ -1,0 +1,554 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>AirRoots Lab — 미세먼지 DIY 공기정화 식물 랩</title>
+  <meta name="description" content="고등학생용 미니멀 기획 + 실험 기록 웹앱. 식물 기반 공기정화 실험 설계, 데이터 입력, 그래프, CSV 내보내기 제공.">
+  <style>
+    /* --- 미니멀 감성 스타일 --- */
+    :root{
+      --bg:#fbfcfd;
+      --card:#ffffff;
+      --muted:#6b7280;
+      --accent:#16a34a;
+      --glass: rgba(6,8,10,0.03);
+      --shadow: 0 6px 18px rgba(12,18,22,0.06);
+      --radius:12px;
+      --mono: 'Noto Sans KR', system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family:var(--mono);
+      background:linear-gradient(180deg,#f7fafc 0%, #eef2f6 100%);
+      color:#0b1220;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      padding:28px;
+      display:flex;
+      align-items:flex-start;
+      justify-content:center;
+    }
+
+    .wrap{width:100%;max-width:1100px}
+    header{display:flex;align-items:center;gap:14px;margin-bottom:18px}
+    .logo{
+      width:56px;height:56px;border-radius:12px;background:linear-gradient(135deg,var(--accent),#10b981);
+      display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:18px;
+      box-shadow:var(--shadow);
+    }
+    h1{margin:0;font-size:20px}
+    p.lead{margin:6px 0 0 0;color:var(--muted);font-size:14px}
+
+    main{display:grid;grid-template-columns:360px 1fr;gap:18px}
+    @media(max-width:980px){main{grid-template-columns:1fr}}
+
+    /* 왼쪽 카드 (기획/재료/프로토콜) */
+    .card{
+      background:var(--card);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:16px;
+    }
+    .section-title{font-weight:700;font-size:14px;margin-bottom:8px}
+    .muted{color:var(--muted);font-size:13px;line-height:1.45}
+
+    .list{padding-left:14px;margin:8px 0 0 0;color:var(--muted)}
+    .list li{margin-bottom:6px}
+
+    /* 오른쪽 실험 툴 */
+    .tools{display:flex;flex-direction:column;gap:12px}
+    .panel{background:var(--card);border-radius:12px;padding:12px;box-shadow:var(--shadow)}
+    .row{display:flex;gap:8px;align-items:center}
+    label{font-size:13px;color:var(--muted)}
+    input[type="text"], input[type="number"], input[type="datetime-local"], select, textarea{
+      padding:8px 10px;border-radius:8px;border:1px solid #e6eef6;background:transparent;flex:1;
+      font-size:13px;color:#071129;
+    }
+    textarea{min-height:72px;resize:vertical}
+    .btn{padding:9px 12px;border-radius:10px;border:none;cursor:pointer;font-weight:700}
+    .btn.ghost{background:transparent;border:1px solid rgba(11,18,32,0.06);color:var(--muted)}
+    .btn.primary{background:linear-gradient(90deg,var(--accent),#10b981);color:white}
+    .controls{display:flex;gap:8px;align-items:center}
+
+    table{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px}
+    th,td{padding:8px;border-bottom:1px solid #f1f5f9;text-align:left}
+    th{font-weight:700;color:var(--muted);font-size:12px}
+    .small{font-size:12px;color:var(--muted)}
+
+    /* 차트 캔버스 */
+    .chart-wrap{height:220px;padding:12px}
+    canvas{width:100%;height:200px;border-radius:8px;background:linear-gradient(180deg,rgba(6,8,10,0.02),rgba(6,8,10,0.01));}
+
+    footer{margin-top:14px;text-align:center;color:var(--muted);font-size:13px}
+  </style>
+</head>
+<body>
+  <div class="wrap" role="application">
+    <header>
+      <div class="logo">AR</div>
+      <div>
+        <h1>AirRoots Lab</h1>
+        <p class="lead">미세먼지 DIY 공기정화 식물 랩 — 실험 설계 · 측정 · 기록 · 공유</p>
+      </div>
+    </header>
+
+    <main>
+      <!-- LEFT: 기획서 요약 -->
+      <aside class="card" aria-labelledby="planTitle">
+        <h2 id="planTitle" class="section-title">프로젝트 요약</h2>
+        <p class="muted">실내 공기정화 식물과 토양 조합의 공기정화 성능을 비교·분석합니다. 휴대용 PM2.5 센서와 반복 측정을 통해 수치로 검증합니다. 결과는 교실·개인 공간 개선에 적용할 수 있습니다.</p>
+
+        <h3 class="section-title" style="margin-top:12px">목표</h3>
+        <ul class="list">
+          <li>식물·토양 조합별 공기정화 효과 비교</li>
+          <li>간단한 미니 플랜터 프로토타입 제안</li>
+          <li>데이터 기반 실험 보고서 작성</li>
+        </ul>
+
+        <h3 class="section-title" style="margin-top:12px">필요 재료</h3>
+        <ul class="list">
+          <li>산세베리아, 스파티필름, 아이비 등 공기정화식물 2~3종</li>
+          <li>일반 배양토, 활성탄, 미생물 접종토(선택)</li>
+          <li>휴대용 PM2.5 측정기(저가형도 가능)</li>
+          <li>측정 기록지(또는 이 웹앱)</li>
+        </ul>
+
+        <h3 class="section-title" style="margin-top:12px">실험 절차(요약)</h3>
+        <ul class="list">
+          <li>동일한 크기의 용기/화분 준비</li>
+          <li>각 조합을 24~72시간 동안 동일 조건에서 측정</li>
+          <li>측정 전·후 및 일정 간격(예: 0h, 1h, 3h, 24h)을 기록</li>
+          <li>데이터 정리 및 그래프화, 결론 도출</li>
+        </ul>
+
+        <div style="margin-top:10px" class="small">
+          <strong>출력용 팁:</strong> 이 페이지를 인쇄하면 실험 기록지로 활용할 수 있습니다.
+        </div>
+      </aside>
+
+      <!-- RIGHT: 툴(입력, 테이블, 그래프) -->
+      <section class="tools">
+        <div class="panel" aria-labelledby="dataTitle">
+          <h2 id="dataTitle" class="section-title">측정값 입력</h2>
+          <div class="muted">측정 시간과 PM2.5(µg/m³) 값을 입력하세요. <span style="font-weight:700">조합 이름</span>을 반드시 기입하면 비교가 쉬워집니다.</div>
+
+          <div style="margin-top:10px" class="row">
+            <label style="width:86px">조합 이름</label>
+            <input id="comboInput" type="text" placeholder="예: 산세베리아 + 활성탄" />
+          </div>
+
+          <div style="margin-top:8px" class="row">
+            <label style="width:86px">측정 시간</label>
+            <input id="timeInput" type="datetime-local" />
+          </div>
+
+          <div style="margin-top:8px" class="row">
+            <label style="width:86px">PM2.5</label>
+            <input id="pmInput" type="number" step="0.1" placeholder="예: 12.5" />
+          </div>
+
+          <div style="margin-top:10px;display:flex;gap:8px">
+            <button id="addBtn" class="btn primary">기록 추가</button>
+            <button id="clearForm" class="btn ghost">입력 초기화</button>
+            <button id="sampleBtn" class="btn ghost">샘플 데이터 불러오기</button>
+          </div>
+        </div>
+
+        <div class="panel" aria-labelledby="tableTitle">
+          <h2 id="tableTitle" class="section-title">데이터 테이블</h2>
+          <div class="muted">아래는 저장된 측정 데이터입니다. 편집/삭제 후 그래프가 자동 갱신됩니다.</div>
+          <div style="margin-top:8px;overflow:auto;max-height:260px">
+            <table id="dataTable" role="table" aria-label="측정 데이터">
+              <thead>
+                <tr><th>조합</th><th>시간</th><th>PM2.5 (µg/m³)</th><th>액션</th></tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+
+          <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+            <button id="exportCsv" class="btn ghost">CSV로 내보내기</button>
+            <button id="exportJson" class="btn ghost">JSON 내보내기</button>
+            <button id="clearAll" class="btn ghost">모두 삭제</button>
+            <div style="margin-left:auto" class="small muted" id="recordCount">기록 0개</div>
+          </div>
+        </div>
+
+        <div class="panel" aria-labelledby="chartTitle">
+          <h2 id="chartTitle" class="section-title">간단 그래프</h2>
+          <div class="muted">조합별 PM2.5 변화를 시각화합니다. 오른쪽에서 조합을 선택해 보세요.</div>
+
+          <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+            <label style="width:96px">표시 조합</label>
+            <select id="comboSelect" style="flex:1">
+              <option value="__all">전체 비교 (색상별)</option>
+            </select>
+            <button id="refreshChart" class="btn ghost">갱신</button>
+          </div>
+
+          <div class="chart-wrap" style="margin-top:10px">
+            <canvas id="chartCanvas"></canvas>
+          </div>
+
+          <div style="margin-top:8px;display:flex;gap:8px">
+            <button id="printReport" class="btn primary">보고서 인쇄</button>
+            <button id="downloadPng" class="btn ghost">그래프 이미지 저장</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="small muted">AirRoots Lab — 실험 템플릿 · 데이터 로컬 저장 (브라우저). 교사 멘토와 함께 검증하세요.</div>
+    </footer>
+  </div>
+
+  <script>
+    // --- 간단한 로컬 데이터 저장 및 UI 로직 ---
+    (function(){
+      const STORAGE_KEY = 'airroots_data_v1';
+      let data = [];
+
+      // DOM
+      const comboInput = document.getElementById('comboInput');
+      const timeInput = document.getElementById('timeInput');
+      const pmInput = document.getElementById('pmInput');
+      const addBtn = document.getElementById('addBtn');
+      const clearForm = document.getElementById('clearForm');
+      const sampleBtn = document.getElementById('sampleBtn');
+
+      const dataTableBody = document.querySelector('#dataTable tbody');
+      const recordCount = document.getElementById('recordCount');
+
+      const exportCsv = document.getElementById('exportCsv');
+      const exportJson = document.getElementById('exportJson');
+      const clearAll = document.getElementById('clearAll');
+
+      const comboSelect = document.getElementById('comboSelect');
+      const refreshChart = document.getElementById('refreshChart');
+      const chartCanvas = document.getElementById('chartCanvas');
+      const printReport = document.getElementById('printReport');
+      const downloadPng = document.getElementById('downloadPng');
+
+      // 초기 로드
+      function load(){
+        const raw = localStorage.getItem(STORAGE_KEY);
+        try{ data = raw ? JSON.parse(raw) : []; }catch(e){ data = []; }
+        renderTable();
+        populateComboSelect();
+        drawChart();
+      }
+
+      function save(){
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        renderTable();
+        populateComboSelect();
+        drawChart();
+      }
+
+      // 데이터 추가
+      addBtn.addEventListener('click', ()=>{
+        const combo = comboInput.value.trim();
+        const time = timeInput.value;
+        const pm = parseFloat(pmInput.value);
+        if(!combo){ alert('조합 이름을 입력하세요.'); return; }
+        if(!time){ alert('측정 시간을 입력하세요.'); return; }
+        if(isNaN(pm)){ alert('PM2.5 값을 숫자로 입력하세요.'); return; }
+
+        data.push({id:Date.now(), combo, time, pm});
+        // 정렬: 시간 오름차
+        data.sort((a,b)=> new Date(a.time) - new Date(b.time));
+        clearInputs();
+        save();
+      });
+
+      clearForm.addEventListener('click', clearInputs);
+      function clearInputs(){
+        comboInput.value=''; timeInput.value=''; pmInput.value='';
+      }
+
+      sampleBtn.addEventListener('click', ()=> {
+        const now = new Date();
+        const iso = (t)=> new Date(t).toISOString().slice(0,16);
+        data = data.concat([
+          {id:1, combo:'산세베리아 + 일반토', time:iso(now.getTime()-1000*60*60*24), pm:42.1},
+          {id:2, combo:'활성탄 포함 토양', time:iso(now.getTime()-1000*60*60*23), pm:36.4},
+          {id:3, combo:'아이비 + 활성탄', time:iso(now.getTime()-1000*60*60*22), pm:30.9},
+          {id:4, combo:'산세베리아 + 일반토', time:iso(now.getTime()-1000*60*60*12), pm:28.6},
+          {id:5, combo:'활성탄 포함 토양', time:iso(now.getTime()-1000*60*60*6), pm:25.7},
+          {id:6, combo:'아이비 + 활성탄', time:iso(now.getTime()-1000*60*60*1), pm:22.3}
+        ]);
+        save();
+      });
+
+      // 테이블 렌더
+      function renderTable(){
+        dataTableBody.innerHTML = '';
+        if(data.length === 0){
+          const tr = document.createElement('tr');
+          tr.innerHTML = '<td colspan="4" class="small muted">기록이 없습니다.</td>';
+          dataTableBody.appendChild(tr);
+        } else {
+          data.forEach(d=>{
+            const tr = document.createElement('tr');
+            const tTime = new Date(d.time).toLocaleString();
+            tr.innerHTML = `
+              <td>${escapeHtml(d.combo)}</td>
+              <td>${tTime}</td>
+              <td>${Number(d.pm).toFixed(1)}</td>
+              <td>
+                <button data-id="${d.id}" class="btn ghost btn-edit small">편집</button>
+                <button data-id="${d.id}" class="btn ghost btn-del small">삭제</button>
+              </td>
+            `;
+            dataTableBody.appendChild(tr);
+          });
+        }
+        // 레코드 수
+        recordCount.textContent = `기록 ${data.length}개`;
+        // 이벤트 바인딩 (delegation)
+        dataTableBody.querySelectorAll('.btn-del').forEach(btn=>{
+          btn.onclick = ()=> {
+            const id = Number(btn.dataset.id);
+            if(confirm('정말 삭제할까요?')) {
+              data = data.filter(x=> x.id !== id);
+              save();
+            }
+          }
+        });
+        dataTableBody.querySelectorAll('.btn-edit').forEach(btn=>{
+          btn.onclick = ()=> {
+            const id = Number(btn.dataset.id);
+            const item = data.find(x=> x.id === id);
+            if(!item) return;
+            const newCombo = prompt('조합 이름', item.combo);
+            if(newCombo === null) return;
+            const newTime = prompt('측정 시간 (YYYY-MM-DDTHH:MM)', item.time);
+            if(newTime === null) return;
+            const newPm = prompt('PM2.5 (µg/m³)', item.pm);
+            if(newPm === null) return;
+            item.combo = newCombo;
+            item.time = newTime;
+            item.pm = parseFloat(newPm);
+            save();
+          }
+        });
+      }
+
+      // select 옵션 채우기
+      function populateComboSelect(){
+        const combos = Array.from(new Set(data.map(d=>d.combo))).sort();
+        comboSelect.innerHTML = '<option value="__all">전체 비교 (색상별)</option>';
+        combos.forEach(c=>{
+          const opt = document.createElement('option');
+          opt.value = c; opt.textContent = c;
+          comboSelect.appendChild(opt);
+        });
+      }
+
+      // CSV / JSON 내보내기
+      exportCsv.addEventListener('click', ()=>{
+        if(data.length === 0) { alert('내보낼 데이터가 없습니다.'); return; }
+        const header = ['combo','time','pm'];
+        const rows = data.map(d=> [escapeCsv(d.combo), d.time, d.pm].join(','));
+        const csv = [header.join(','), ...rows].join('\n');
+        downloadFile(csv, 'airroots_data.csv','text/csv;charset=utf-8;');
+      });
+      exportJson.addEventListener('click', ()=>{
+        if(data.length === 0) { alert('내보낼 데이터가 없습니다.'); return; }
+        const json = JSON.stringify(data, null, 2);
+        downloadFile(json,'airroots_data.json','application/json;charset=utf-8;');
+      });
+
+      clearAll.addEventListener('click', ()=> {
+        if(confirm('모든 데이터를 삭제할까요?')) {
+          data = [];
+          save();
+        }
+      });
+
+      function downloadFile(content, filename, mime){
+        const blob = new Blob([content], {type: mime});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click();
+        a.remove(); URL.revokeObjectURL(url);
+      }
+
+      // 그래프 그리기 (간단한 캔버스 라인차트)
+      const ctx = chartCanvas.getContext('2d');
+      function drawChart(){
+        // 크기 조정 (디바이스 픽셀비 고려)
+        const rect = chartCanvas.getBoundingClientRect();
+        chartCanvas.width = rect.width * devicePixelRatio;
+        chartCanvas.height = rect.height * devicePixelRatio;
+        ctx.scale(devicePixelRatio, devicePixelRatio);
+
+        // 배경 클리어
+        ctx.clearRect(0,0,rect.width,rect.height);
+
+        if(data.length === 0){
+          // 안내 텍스트
+          ctx.fillStyle = '#9aa8b2';
+          ctx.font = '14px sans-serif';
+          ctx.fillText('측정값을 추가하면 그래프가 여기 표시됩니다.', 12, 24);
+          return;
+        }
+
+        // 필터 선택
+        const sel = comboSelect.value;
+
+        // 그룹화
+        const byCombo = {};
+        data.forEach(d=>{
+          if(!byCombo[d.combo]) byCombo[d.combo] = [];
+          byCombo[d.combo].push(d);
+        });
+
+        // 색상 팔레트 (심플)
+        const palette = ['#16a34a','#f59e0b','#3b82f6','#ef4444','#8b5cf6','#0ea5a4'];
+
+        const combos = sel === '__all' ? Object.keys(byCombo) : [sel];
+        // x축 범위: 전체 시간 범위
+        let allTimes = data.map(d=> new Date(d.time).getTime());
+        const minT = Math.min(...allTimes);
+        const maxT = Math.max(...allTimes);
+
+        const pad = 40;
+        const w = rect.width - pad*2;
+        const h = rect.height - 60;
+        // 축 그리기
+        ctx.strokeStyle = '#e6eef6';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(pad,10);
+        ctx.lineTo(pad,10+h);
+        ctx.lineTo(pad+w,10+h);
+        ctx.stroke();
+
+        // y축 범위 (PM)
+        const allPm = data.map(d=> Number(d.pm));
+        const minY = Math.max(0, Math.min(...allPm) - 5);
+        const maxY = Math.max(...allPm) + 5;
+        // 눈금 그리기 (3개)
+        ctx.fillStyle = '#9aa8b2';
+        ctx.font = '12px sans-serif';
+        for(let i=0;i<=3;i++){
+          const y = 10 + h - (h*(i/3));
+          const val = (minY + (maxY-minY)*(i/3)).toFixed(1);
+          ctx.fillText(val, 6, y+4);
+          ctx.beginPath();
+          ctx.moveTo(pad, y);
+          ctx.lineTo(pad+w, y);
+          ctx.strokeStyle = 'rgba(5,10,15,0.03)';
+          ctx.stroke();
+        }
+
+        // 각 조합별 라인 그리기
+        combos.forEach((combo, idx)=>{
+          const pts = (byCombo[combo] || []).slice().sort((a,b)=> new Date(a.time)-new Date(b.time));
+          if(pts.length === 0) return;
+          const color = palette[idx % palette.length];
+          ctx.beginPath();
+          pts.forEach((p, i)=>{
+            const tx = pad + ((new Date(p.time).getTime() - minT)/(maxT-minT || 1)) * w;
+            const ty = 10 + h - ((p.pm - minY)/(maxY-minY || 1)) * h;
+            if(i===0) ctx.moveTo(tx, ty); else ctx.lineTo(tx, ty);
+          });
+          ctx.lineWidth = 2.4;
+          ctx.strokeStyle = color;
+          ctx.stroke();
+
+          // 점과 라벨
+          pts.forEach((p)=>{
+            const tx = pad + ((new Date(p.time).getTime() - minT)/(maxT-minT || 1)) * w;
+            const ty = 10 + h - ((p.pm - minY)/(maxY-minY || 1)) * h;
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(tx, ty, 3.5, 0, Math.PI*2);
+            ctx.fill();
+          });
+
+          // 범례
+          ctx.fillStyle = '#071129';
+          ctx.font = '12px sans-serif';
+          ctx.fillText(combo, pad + w - 120, 20 + idx*18);
+          // 범례 색상 박스
+          ctx.fillStyle = color;
+          ctx.fillRect(pad + w - 140, 12 + idx*18, 10, 10);
+        });
+      }
+
+      // 차트 갱신 버튼
+      refreshChart.addEventListener('click', drawChart);
+      comboSelect.addEventListener('change', drawChart);
+
+      // 그래프 이미지 저장
+      downloadPng.addEventListener('click', ()=>{
+        const url = chartCanvas.toDataURL('image/png');
+        const a = document.createElement('a');
+        a.href = url; a.download = 'airroots_chart.png';
+        document.body.appendChild(a); a.click(); a.remove();
+      });
+
+      // 보고서 인쇄 (간단: 테이블+그래프)
+      printReport.addEventListener('click', ()=>{
+        const printWindow = window.open('', '_blank', 'width=900,height=700');
+        const title = 'AirRoots Lab — 실험 보고서';
+        const html = `
+          <html><head><meta charset="utf-8"><title>${title}</title>
+          <style>body{font-family:Arial,Helvetica,sans-serif;padding:18px;color:#071129}h1{font-size:18px}table{border-collapse:collapse;width:100%;}th,td{padding:8px;border:1px solid #ddd;text-align:left;font-size:13px}img{max-width:100%;height:auto}</style>
+          </head><body>
+          <h1>${title}</h1>
+          <h3>측정 데이터</h3>
+          ${generateTableHTML()}
+          <h3>그래프</h3>
+          <img src="${chartCanvas.toDataURL()}" alt="chart" />
+          <p style="color:#666;font-size:12px">AirRoots Lab — 실험 템플릿</p>
+          </body></html>
+        `;
+        printWindow.document.open();
+        printWindow.document.write(html);
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(()=>printWindow.print(), 500);
+      });
+
+      // 유틸리티
+      function generateTableHTML(){
+        if(data.length === 0) return '<p class="muted">데이터가 없습니다.</p>';
+        let rows = '<table><thead><tr><th>조합</th><th>시간</th><th>PM2.5</th></tr></thead><tbody>';
+        data.forEach(d=>{
+          const t = new Date(d.time).toLocaleString();
+          rows += `<tr><td>${escapeHtml(d.combo)}</td><td>${t}</td><td>${Number(d.pm).toFixed(1)}</td></tr>`;
+        });
+        rows += '</tbody></table>';
+        return rows;
+      }
+
+      // 작은 헬퍼들
+      function escapeHtml(s){ return String(s).replace(/[&<>"']/g, function(m){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]; }); }
+      function escapeCsv(s){ return `"${String(s).replace(/"/g,'""')}"`; }
+
+      // 초기 로드
+      load();
+
+      // 윈도우 리사이즈 시 차트 재그리기 (디바이스픽셀)
+      let resizeTimer=null;
+      window.addEventListener('resize', ()=> { clearTimeout(resizeTimer); resizeTimer = setTimeout(drawChart, 250); });
+
+      // 개발 편의: 콘솔에서 직접 data 조작 가능
+      window.airroots = {
+        get data(){ return data; },
+        set data(v){ data = v; save(); },
+        reset(){ data = []; save(); }
+      };
+
+    })();
+  </script>
+</body>
+</html>
